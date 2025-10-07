@@ -1,0 +1,43 @@
+﻿@page "/Projects/{projectId}"
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using ProjectPlanner.Components.Layout
+@using ProjectPlanner.Data
+@using ProjectPlanner.Data.Projects
+@attribute [StreamRendering]
+@attribute [Authorize]
+
+<PageTitle>@_project?.Name</PageTitle>
+
+<div class="page">
+    <div class="sidebar">
+    </div>
+    <div>
+        @if (_project == null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <h1>@_project.Name</h1>
+            <p>@_project.Description</p>
+        }
+    </div>
+</div>
+
+
+@code {
+ 
+    [Parameter]
+    public string ProjectId { get; set; }
+    
+    private ProjectModel? _project { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(500);
+        using var context = await DbFactory.CreateDbContextAsync();
+        _project = context.Projects.FirstOrDefault(x => x.Id == int.Parse(ProjectId));
+    }
+}

@@ -1,0 +1,45 @@
+﻿@page "/Projects/All"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using ProjectPlanner.Data
+@using ProjectPlanner.Data.Projects;
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@attribute [StreamRendering]
+@attribute [Authorize]
+
+<PageTitle>All Projects</PageTitle>
+
+<h3>All Projects</h3>
+
+@if (_projects == null)
+{
+    <p>
+        <em>Loading...</em>
+    </p>
+}
+else
+{
+   @foreach (var project in _projects)
+   {
+       <hr/>
+       <h1><a href="/Projects/@project.Id">@project.Name</a></h1>
+       @if (@project.Description != null)
+       {
+           <p>@project.Description</p>
+       }
+       <small>Created: @project.Created.ToShortDateString()</small>
+       <br/>
+       <small>Modified: @double.Round(project.ModifiedOffset, 1) Hours ago</small>
+   } 
+}
+
+@code {
+    private ProjectModel[]? _projects;
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(500);
+
+        using var context = await DbFactory.CreateDbContextAsync();
+        _projects = context.Projects.ToArray();
+    }
+}

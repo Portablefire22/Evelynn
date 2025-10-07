@@ -4,6 +4,7 @@ using ProjectPlanner.Client.Pages;
 using ProjectPlanner.Components;
 using ProjectPlanner.Components.Account;
 using ProjectPlanner.Data;
+using ProjectPlanner.Data.Projects;
 
 namespace ProjectPlanner;
 
@@ -32,7 +33,7 @@ public class Program
 
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ??
                                throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-        builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
             options.UseSqlite(connectionString));
         builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
