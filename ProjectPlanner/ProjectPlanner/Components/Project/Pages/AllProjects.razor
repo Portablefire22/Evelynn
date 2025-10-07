@@ -1,9 +1,11 @@
 ﻿@page "/Projects/All"
+@using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using ProjectPlanner.Data
 @using ProjectPlanner.Data.Projects;
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject AuthenticationStateProvider AuthState
 @attribute [StreamRendering]
 @attribute [Authorize]
 
@@ -22,14 +24,19 @@ else
    @foreach (var project in _projects)
    {
        <hr/>
-       <h1><a href="/Projects/@project.Id">@project.Name</a></h1>
+       <h1><a href="/Projects/Project/@project.Id">@project.Name</a></h1>
+       <div class="d-flex flex-column text-muted">
+           <small>Created: @project.Created.ToShortDateString()</small>
+           @if (project.Modified != null)
+           {
+               <small>Modified: @double.Round(project.ModifiedOffset, 1) Hours ago</small>
+           }
+       </div> 
        @if (@project.Description != null)
        {
            <p>@project.Description</p>
        }
-       <small>Created: @project.Created.ToShortDateString()</small>
-       <br/>
-       <small>Modified: @double.Round(project.ModifiedOffset, 1) Hours ago</small>
+      
    } 
 }
 
@@ -37,9 +44,11 @@ else
     private ProjectModel[]? _projects;
     protected override async Task OnInitializedAsync()
     {
-        await Task.Delay(500);
-
         using var context = await DbFactory.CreateDbContextAsync();
-        _projects = context.Projects.ToArray();
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        var uuid = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (uuid == null) return;
+        var ids = await context.UserProjects.Where(x => x.UserId == uuid).Select(x => x.ProjectId).ToArrayAsync();
+        _projects = await context.Projects.Where(x => ids.Contains(x.Id)).ToArrayAsync();
     }
 }

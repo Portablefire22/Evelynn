@@ -1,8 +1,11 @@
-﻿@page "/Projects/{projectId}"
+﻿@page "/Projects/Project/{projectId}"
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject AuthenticationStateProvider AuthState
+@using System.Globalization
+@using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.CodeAnalysis.CSharp.Syntax
 @using Microsoft.EntityFrameworkCore
-@using ProjectPlanner.Components.Layout
 @using ProjectPlanner.Data
 @using ProjectPlanner.Data.Projects
 @attribute [StreamRendering]
@@ -20,7 +23,19 @@
         }
         else
         {
-            <h1>@_project.Name</h1>
+            <h1 class="fw-bold">@_project.Name</h1>
+            <div class="d-flex flex-column text-muted">
+                <small>Created: @_project.Created.ToString(CultureInfo.CurrentCulture)</small>
+                @if (_project.Modified != null && _project.Modified?.Subtract(_project.Created).Milliseconds > 5)
+                {
+                    <small>Last Modified: @_project.ModifiedOffset hours ago (@_project.Modified?.ToString())</small>
+                    <small>Modified by: @(GetUser(_project.ModifiedBy))</small>
+                }
+                else if (_project.ModifiedBy != null)
+                { 
+                    <small>Created by: @(GetUser(_project.ModifiedBy))</small>
+                }
+            </div>
             <p>@_project.Description</p>
         }
     </div>
@@ -34,10 +49,28 @@
     
     private ProjectModel? _project { get; set; }
 
+    private string? GetUser(string? uuid)
+    {
+        if (uuid == null) return null;
+
+        var context = DbFactory.CreateDbContext();
+        var user = context.Users.Find(uuid);
+        return user?.UserName;
+    }
+
     protected override async Task OnInitializedAsync()
     {
-        await Task.Delay(500);
         using var context = await DbFactory.CreateDbContextAsync();
+        
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        var uuid = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (uuid == null) return;
+        if (!int.TryParse(ProjectId, out var id)) return;
+
+        var model = await context.UserProjects.FirstOrDefaultAsync(x => x.ProjectId == id && x.UserId == uuid);
+        if (model == null) return;
+        
+        
         _project = context.Projects.FirstOrDefault(x => x.Id == int.Parse(ProjectId));
     }
 }

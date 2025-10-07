@@ -1,6 +1,12 @@
-﻿@using System.Text.RegularExpressions
+﻿@using System.Security.Claims
+@using System.Text.RegularExpressions
+@using Microsoft.EntityFrameworkCore
+@using ProjectPlanner.Data
+@using ProjectPlanner.Data.Projects
 @implements IDisposable
 
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject AuthenticationStateProvider AuthState
 @inject NavigationManager NavigationManager
 
 <div class="top-row ps-3 navbar navbar-dark">
@@ -33,20 +39,33 @@
                         <span class="bi bi-journal-book-fill-nav-menu" aria-hidden="true"></span>Projects
                     </NavLink>
                 </div>
-                
-                @if (_currentProject != null)
+                @* *@
+                @* @if (_currentProject != null) *@
+                @* { *@
+                @*     <div class="nav-item px-3"> *@
+                @*         <NavLink class="nav-link" href=@($"Projects/Project/{_currentProject.Id}")> *@
+                @*             <span class="bi bi-journal-book-fill-nav-menu" aria-hidden="true"></span> @_currentProject.Name *@
+                @*         </NavLink> *@
+                @*     </div> *@
+                @* } *@
+                <hr/>
+                @if (_projects != null)
                 {
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href=@($"Projects/{_currentProject}/Notes")>
-                            <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Notes
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href=@($"Projects/{_currentProject}/Gantt")>
-                            <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Gantt
-                        </NavLink>
-                    </div>
+                    foreach (var project in _projects)
+                    { 
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href=@($"Projects/Project/{project.Id}")>
+                                <span class="bi bi-journal-book-fill-nav-menu" aria-hidden="true"></span> @project.Name
+                            </NavLink>
+                        </div>
+                    }
                 }
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="Projects/CreateProject">
+                        <span class="bi bi-pencil-nav-menu" aria-hidden="true"></span>New Project
+                    </NavLink>
+                </div>
 
                 <div class="nav-item px-3">
                     <form action="Account/Logout" method="post">
@@ -78,32 +97,50 @@
 @code {
     private string? currentUrl;
 
-    private int? _currentProject;
-    
-    protected override void OnInitialized()
+    private ProjectModel[]? _projects;
+    private ProjectModel? _currentProject;
+
+    protected override async Task OnInitializedAsync()
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        
-        // Get the project ID if there is one
-        var pattern = @"(?<=Projects\/)(.*?)(?=\/|$)";
-        var rg = new Regex(pattern);
-        var val = rg.Match(currentUrl).Value;
-        _currentProject = int.TryParse(val, out var cur) ? cur : null;
-        
-        
+        await GetProjects();
         NavigationManager.LocationChanged += OnLocationChanged;
     }
 
+    private void GetProject()
+    {
+        // Currently you should only be able to get to these URLS by being authenticated
+        // So surely this should be fine?
+        
+        // Get the project ID if there is one
+        var pattern = @"(?<=Project\/)(.*?)(?=\/|$)";
+        var rg = new Regex(pattern);
+        var val = rg.Match(currentUrl).Value;
+        if (!int.TryParse(val, out var cur))
+        {
+            return;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+        _currentProject = context.Projects.FirstOrDefault(x => x.Id == cur);
+    }
+
+    private async Task GetProjects()
+    {
+        var context = await DbFactory.CreateDbContextAsync();
+        
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        var uuid = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (uuid == null) return;
+
+        var userProjects = context.UserProjects.Where(x => x.UserId == uuid).Select(x => x.ProjectId);
+        _projects = await context.Projects.Where(x => userProjects.Contains(x.Id)).ToArrayAsync();
+    }
+    
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
-        
-        // Get the project ID if there is one
-        var pattern = @"(?<=Projects\/)(.*?)(?=\/|$)";
-        var rg = new Regex(pattern);
-        var val = rg.Match(currentUrl).Value;
-        _currentProject = int.TryParse(val, out var cur) ? cur : null;
-        
+        _ = GetProjects();
         StateHasChanged();
     }
 

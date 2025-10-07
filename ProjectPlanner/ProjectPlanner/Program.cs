@@ -31,6 +31,8 @@ public class Program
             .AddIdentityCookies();
         builder.Services.AddAuthorization();
 
+        builder.Services.AddControllers();
+
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ??
                                throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
         builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
@@ -67,6 +69,8 @@ public class Program
         app.MapRazorComponents<App>()
             .AddInteractiveWebAssemblyRenderMode()
             .AddAdditionalAssemblies(typeof(Client._Imports).Assembly);
+ 
+        app.MapControllers();
 
         // Add additional endpoints required by the Identity /Account Razor components.
         app.MapAdditionalIdentityEndpoints();
