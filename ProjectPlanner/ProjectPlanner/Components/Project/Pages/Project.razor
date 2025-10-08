@@ -1,42 +1,66 @@
 ﻿@page "/Projects/Project/{projectId}"
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject AuthenticationStateProvider AuthState
+@inject NavigationManager NavManager
 @using System.Globalization
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.CodeAnalysis.CSharp.Syntax
 @using Microsoft.EntityFrameworkCore
 @using ProjectPlanner.Data
 @using ProjectPlanner.Data.Projects
 @attribute [StreamRendering]
 @attribute [Authorize]
 
-<PageTitle>@_project?.Name</PageTitle>
+<PageTitle>@CurrentProject?.Name</PageTitle>
 
 <div class="page">
     <div class="sidebar">
     </div>
     <div>
-        @if (_project == null)
+        @if (CurrentProject == null)
         {
             <p><em>Loading...</em></p>
         }
         else
         {
-            <h1 class="fw-bold">@_project.Name</h1>
+            <h1 class="fw-bold">@CurrentProject.Name</h1>
             <div class="d-flex flex-column text-muted">
-                <small>Created: @_project.Created.ToString(CultureInfo.CurrentCulture)</small>
-                @if (_project.Modified != null && _project.Modified?.Subtract(_project.Created).Milliseconds > 5)
+                <small>Created: @CurrentProject.Created.ToString(CultureInfo.CurrentCulture)</small>
+                @if (CurrentProject.Modified != null && CurrentProject.Modified?.Subtract(CurrentProject.Created).Milliseconds > 5)
                 {
-                    <small>Last Modified: @_project.ModifiedOffset hours ago (@_project.Modified?.ToString())</small>
-                    <small>Modified by: @(GetUser(_project.ModifiedBy))</small>
+                    <small>Last Modified: @CurrentProject.ModifiedOffset hours ago (@CurrentProject.Modified?.ToString())</small>
+                    <small>Modified by: @(GetUser(CurrentProject.ModifiedBy))</small>
                 }
-                else if (_project.ModifiedBy != null)
+                else if (CurrentProject.ModifiedBy != null)
                 { 
-                    <small>Created by: @(GetUser(_project.ModifiedBy))</small>
+                    <small>Created by: @(GetUser(CurrentProject.ModifiedBy))</small>
                 }
             </div>
-            <p>@_project.Description</p>
+            <p>@CurrentProject.Description</p>
+            <div>
+                <hr/>
+                <h2>Notes (@Notes.Length)</h2>
+                @* No clue why relative urls dont work *@
+                <a class="btn btn-primary" href=@($"Projects/Project/{ProjectId}/NewNote")>New Note</a>
+                @foreach (var note in Notes)
+                {
+                    <div class="d-flex flex-column">
+                        <a href=@($"Projects/Project/{ProjectId}/Notes/{note.Id}")>@note.Name</a>
+                    </div>
+                }
+            </div>
+            
+            <div>
+                <hr/>
+                <h2>Gantt Charts(@Gantts.Length)</h2>
+                <a class="btn btn-primary" href=@($"Projects/Project/{ProjectId}/NewGantt")>New Gantt</a>
+                @foreach (var gantt in Gantts) 
+                {
+                    <div class="d-flex flex-column">
+                        <a href=@($"Projects/Project/{ProjectId}/Gantts/{gantt.Id}")>@gantt.Name</a>
+                    </div>
+                }
+            </div>
         }
     </div>
 </div>
@@ -47,7 +71,10 @@
     [Parameter]
     public string ProjectId { get; set; }
     
-    private ProjectModel? _project { get; set; }
+    private ProjectModel? CurrentProject { get; set; }
+    
+    private NotesModel[] Notes { get; set; }
+    private GanttModel[] Gantts { get; set; }
 
     private string? GetUser(string? uuid)
     {
@@ -58,6 +85,15 @@
         return user?.UserName;
     }
 
+    private async Task<NotesModel[]> GetNotes(ApplicationDbContext context, int id)
+    {
+        return await context.Notes.Where(x => x.ProjectId == id).ToArrayAsync();
+    }
+    private async Task<GanttModel[]> GetGantts(ApplicationDbContext context, int id)
+    {
+        return await context.Gantts.Where(x => x.ProjectId == id).ToArrayAsync();
+    }
+    
     protected override async Task OnInitializedAsync()
     {
         using var context = await DbFactory.CreateDbContextAsync();
@@ -69,8 +105,10 @@
 
         var model = await context.UserProjects.FirstOrDefaultAsync(x => x.ProjectId == id && x.UserId == uuid);
         if (model == null) return;
+
+        Notes = await GetNotes(context, id);
+        Gantts = await GetGantts(context, id);
         
-        
-        _project = context.Projects.FirstOrDefault(x => x.Id == int.Parse(ProjectId));
+        CurrentProject = context.Projects.FirstOrDefault(x => x.Id == int.Parse(ProjectId));
     }
 }

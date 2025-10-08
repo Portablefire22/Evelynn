@@ -18,6 +18,8 @@ public class NotesModel
     public DateTime? Modified { get; set; }
 
     public string? ModifiedBy { get; set; }
+    
+    public string? FilePath { get; set; }
 
     public double ModifiedOffset => DateTime.Now.Subtract(Modified.GetValueOrDefault()).TotalHours;
 }

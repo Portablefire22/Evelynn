@@ -1,0 +1,101 @@
+﻿@page "/Projects/Project/{projectId}/Notes/{noteId}"
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager NavManager
+@using System.Globalization
+@using System.Security.Claims
+@using BlazorBootstrap
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using ProjectPlanner.Data
+@using ProjectPlanner.Data.Projects
+@attribute [StreamRendering]
+@attribute [Authorize]
+
+<PageTitle>@CurrentNote?.Name</PageTitle>
+
+<div class="page">
+    <div class="sidebar">
+    </div>
+    <div>
+        @if (CurrentNote == null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <h1 class="fw-bold">@CurrentNote.Name</h1>
+            <div class="d-flex flex-column text-muted">
+                <small>Created: @CurrentNote.Created.ToString(CultureInfo.CurrentCulture)</small>
+                @if (CurrentNote.Modified != null && CurrentNote.Modified?.Subtract(CurrentNote.Created).Milliseconds > 5)
+                {
+                    <small>Last Modified: @CurrentNote.ModifiedOffset hours ago (@CurrentNote.Modified?.ToString())</small>
+                    <small>Modified by: @(GetUser(CurrentNote.ModifiedBy))</small>
+                }
+                else if (CurrentNote.ModifiedBy != null)
+                { 
+                    <small>Created by: @(GetUser(CurrentNote.ModifiedBy))</small>
+                }
+            </div>
+            <Markdown>@CurrentNote.Contents</Markdown>
+        }
+    </div>
+</div>
+
+
+@code {
+ 
+    [Parameter]
+    public string ProjectId { get; set; }
+    
+    [Parameter]
+    public string NoteId { get; set; }
+ 
+    private NoteView? CurrentNote { get; set; }
+    
+    private string? GetUser(string? uuid)
+    {
+        if (uuid == null) return null;
+
+        var context = DbFactory.CreateDbContext();
+        var user = context.Users.Find(uuid);
+        return user?.UserName;
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = await DbFactory.CreateDbContextAsync();
+        
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        var uuid = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (uuid == null) return;
+        if (!int.TryParse(ProjectId, out var projectId)) return;
+        if (!int.TryParse(NoteId, out var noteId)) return;
+
+        var model = await context.UserProjects.FirstOrDefaultAsync(x => x.ProjectId == projectId && x.UserId == uuid);
+        if (model == null) return;
+        
+        var tmp = context.Notes.FirstOrDefault(x => x.ProjectId == projectId && x.Id == noteId);
+
+        if (tmp == null || tmp.FilePath == null) return;
+
+        var contents = await File.ReadAllTextAsync(tmp.FilePath);
+        
+        CurrentNote = new NoteView()
+        {
+            Name = tmp.Name,
+            Created = tmp.Created,
+            Modified = tmp.Modified,
+            ModifiedBy = tmp.ModifiedBy,
+            FilePath = tmp.FilePath,
+            ProjectId = tmp.ProjectId,
+            Contents = contents
+        };
+    }
+    
+    private class NoteView : NotesModel
+    {
+        public string? Contents { get; set; }
+    }
+
+}
