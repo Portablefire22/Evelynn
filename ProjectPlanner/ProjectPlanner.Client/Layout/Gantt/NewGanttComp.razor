@@ -1,0 +1,46 @@
+@using ProjectPlanner.Client.Models
+@inject ILogger<NewGanttComp> Logger;
+@inject HttpClient Client;
+
+<div class="card mx-auto" style="width: 50rem;">
+    <div class="card-header">
+        <h3>New Gantt</h3>
+    </div>
+    <EditForm class="p-3" Model="Gantt" FormName="create-gantt-form" OnValidSubmit="OnSubmit">
+        <div class="mb-3">
+            <label for="ganttNameInput">Gantt Name</label>
+            <InputText type="text" formaction="/api/Gantt/new-gantt" class="form-control" 
+                       @bind-value="Gantt!.Name" id="ganttNameInput" placeholder="Enter gantt name"/>
+        </div>
+        <div class="mb-3">
+            <label for="ganttDescriptionInput">Gantt Description</label>
+            <textarea type="text" class="form-control" id="ganttDescriptionInput"
+                       @bind:event="oninput"
+                      @bind="Gantt!.Description" placeholder="A short description of your gantt">
+            </textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Create</button>
+    </EditForm>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private GanttDTO Gantt { get; set; }
+
+    [Parameter]
+    public string ProjectId { get; set; }
+    
+    private async Task OnSubmit()
+    {
+        Logger.LogInformation($"Base Addr: {Client.BaseAddress}");
+        var dat = await Client.GetAsync($"/api/Project/{ProjectId}");
+        await Client.PutAsJsonAsync($"/api/Project/{ProjectId}/NewGantt", Gantt);
+        Logger.LogInformation(await dat.Content.ReadAsStringAsync());
+    }
+
+    protected override void OnInitialized()
+    {
+        Gantt ??= new();
+    }
+
+}

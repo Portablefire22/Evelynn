@@ -1,0 +1,10 @@
+@page "/Projects/Project/{ProjectId}/NewGantt"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using ProjectPlanner.Client.Layout.Gantt
+
+<NewGanttComp ProjectId="@ProjectId"></NewGanttComp>
+
+@code {
+   [Parameter]
+   public string ProjectId { get; set; } 
+}

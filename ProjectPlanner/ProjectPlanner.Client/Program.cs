@@ -8,6 +8,18 @@ class Program
     {
         var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
+        
+        builder.Services.AddScoped<HttpClient>(sp =>
+        {
+            // Use the server's base address for API calls in Server render mode
+            var navigationManager = sp.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+            return new HttpClient
+            {
+                BaseAddress = new Uri(navigationManager.BaseUri) // Server's BaseUri
+            };
+        });
+        
+        
         builder.Services.AddAuthorizationCore();
         builder.Services.AddCascadingAuthenticationState();
         builder.Services.AddAuthenticationStateDeserialization();

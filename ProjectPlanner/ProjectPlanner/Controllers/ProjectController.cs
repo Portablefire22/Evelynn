@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ProjectPlanner.Client.Models;
 using ProjectPlanner.Data;
 using ProjectPlanner.Data.Projects;
 
@@ -51,15 +52,16 @@ namespace ProjectPlanner.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<ProjectModel>> GetProjectModel(int id)
         {
-            var projectModel = await _context.Projects.FirstOrDefaultAsync(x => x.Id == id);
 
             var user = GetCurrentUserId();
-            if (user == null || projectModel == null ||
-                !(await DoesUserHaveAccessToProject(user, projectModel.Id)).Value)
+            if (user == null ||
+                !(await DoesUserHaveAccessToProject(user, id)).Value)
             {
                 return NotFound();
             }
-            return projectModel;
+            var projectModel = await _context.Projects.FirstOrDefaultAsync(x => x.Id == id);
+           
+            return projectModel != null? projectModel : NotFound();
         }
 
         [HttpPost("create-project")]
@@ -67,7 +69,52 @@ namespace ProjectPlanner.Controllers
         {
             return Redirect("/Projects/Project/0");
         }
-        
+
+        [HttpPut("{id}/NewGantt")]
+        [Consumes("application/json")]
+        public async Task<IActionResult> PutGantt(int id, GanttDTO gantt)
+        {
+            var user = GetCurrentUserId();
+            if (user == null || !(await DoesUserHaveAccessToProject(user, id)).Value)
+            {
+                return BadRequest();
+            }
+
+            var ganttMod = new GanttModel()
+            {
+                Name = gantt.Name,
+                Description = gantt.Name,
+                Created = DateTime.Now,
+                ModifiedBy = user,
+                ProjectId = id,
+                XmlPath = ""
+            };
+
+            _context.Gantts.Add(ganttMod);
+
+            await _context.SaveChangesAsync();
+
+            _context.Update(ganttMod);
+            ganttMod.XmlPath = $"Storage/Gantt/{id}/{ganttMod.Id}.xml";
+            await _context.SaveChangesAsync();
+            
+            return Ok();
+        }
+        // GET: api/Project/5
+        [HttpGet("{id}/Gantt")]
+        public async Task<ActionResult<IEnumerable<GanttModel>>> GetProjectGantts(int id)
+        {
+
+            var user = GetCurrentUserId();
+            if (user == null ||
+                !(await DoesUserHaveAccessToProject(user, id)).Value)
+            {
+                return NotFound();
+            }
+            var projectModel = await _context.Gantts.Where(x => x.ProjectId == id).ToArrayAsync();
+           
+            return projectModel;
+        }
         
         // PUT: api/Project/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
