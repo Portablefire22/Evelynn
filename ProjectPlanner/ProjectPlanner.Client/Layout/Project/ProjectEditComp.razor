@@ -1,0 +1,66 @@
+﻿@using System.Net
+@using System.Security.Claims
+@using System.Text.Json
+@using Microsoft.AspNetCore.Authorization
+@using ProjectPlanner.Client.Models
+@inject NavigationManager NavManager
+@inject HttpClient Client
+@inject ILogger<ProjectEditComp> Logger;
+
+
+<div class="card mx-auto" style="width: 50rem;">
+    <div class="card-header">
+        <h3>@Title</h3>
+    </div>
+    <EditForm class="p-3" Model="Project" FormName="create-project-form" OnValidSubmit="OnSubmit">
+        <div class="mb-3">
+            <label for="projectNameInput">Project Name</label>
+            <InputText type="text" formaction="/api/Project/new-project" class="form-control" 
+                       @bind-value="Project!.Name" id="projectNameInput" placeholder="Enter project name"/>
+        </div>
+        <div class="mb-3">
+            <label for="projectDescriptionInput">Project Description</label>
+            <textarea type="text" class="form-control" id="projectDescriptionInput"
+                       @bind:event="oninput"
+                      @bind="Project!.Description" placeholder="A short description of your project"> </textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">@ButtonText</button>
+    </EditForm>
+</div>
+@code {
+    [Parameter] public bool IsCreate { get; set; }
+    [Parameter] public string? ProjectId { get; set; }
+
+    private string Title => IsCreate ? "New Project" : "Edit Project";
+    private string ButtonText => IsCreate ? "Create" : "Edit"; 
+    
+    [SupplyParameterFromForm]
+    private ProjectDTO? Project { get; set; }
+
+    private async Task OnSubmit()
+    {
+        var dest = IsCreate ? "NewProject" : $"EditProject/{ProjectId}";
+        if (!IsCreate)
+        {
+            Project!.Id = int.Parse(ProjectId!);
+        }
+        var x = await Client.PutAsJsonAsync($"/api/Project/{dest}", Project);
+        if (x.StatusCode != HttpStatusCode.OK) return;
+
+        var project = await x.Content.ReadFromJsonAsync<ProjectDTO>();
+        NavManager.NavigateTo($"/Projects/Project/{project!.Id}");
+    }
+
+    protected override void OnInitialized()
+    {
+        Project ??= new();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || IsCreate) return;
+        Project = await Client.GetFromJsonAsync<ProjectDTO>($"/api/Project/{ProjectId}");
+        StateHasChanged();
+    }
+
+}

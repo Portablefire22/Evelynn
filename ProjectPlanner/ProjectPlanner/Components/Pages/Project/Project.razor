@@ -23,18 +23,26 @@
         }
         else
         {
-            <h1 class="fw-bold">@CurrentProject.Name</h1>
-            <div class="d-flex flex-column text-muted">
-                <small>Created: @CurrentProject.Created.ToString(CultureInfo.CurrentCulture)</small>
-                @if (CurrentProject.Modified != null && CurrentProject.Modified?.Subtract(CurrentProject.Created).Milliseconds > 5)
-                {
-                    <small>Last Modified: @CurrentProject.ModifiedOffset hours ago (@CurrentProject.Modified?.ToString())</small>
-                    <small>Modified by: @(GetUser(CurrentProject.ModifiedBy))</small>
-                }
-                else if (CurrentProject.ModifiedBy != null)
-                { 
-                    <small>Created by: @(GetUser(CurrentProject.ModifiedBy))</small>
-                }
+            <div class="d-flex flex-column">
+                <div>
+                    <h1 class="fw-bold">@CurrentProject.Name</h1>
+                    <div class="d-flex flex-column text-muted">
+                        <small>Created: @CurrentProject.Created.ToString(CultureInfo.CurrentCulture)</small>
+                        @if (CurrentProject.Modified != null && CurrentProject.Modified?.Subtract(CurrentProject.Created).Milliseconds > 5)
+                        {
+                            <small>Last Modified: @CurrentProject.ModifiedOffset hours ago (@CurrentProject.Modified?.ToString())</small>
+                            <small>Modified by: @(GetUser(CurrentProject.ModifiedBy))</small>
+                        }
+                        else if (CurrentProject.ModifiedBy != null)
+                        { 
+                            <small>Created by: @(GetUser(CurrentProject.ModifiedBy))</small>
+                        }
+                    </div>
+                </div>
+                <div class="order-2 mt-2">
+                    <a class="btn btn-primary" href="/Projects/EditProject/@ProjectId">Edit</a>
+                    <button class="btn btn-danger">Delete</button>
+                </div>
             </div>
             <p>@CurrentProject.Description</p>
             <div>

@@ -27,7 +27,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Components\Project\Layout\" />
       <Folder Include="Controllers\" />
       <Folder Include="Storage\Notes\" />
     </ItemGroup>

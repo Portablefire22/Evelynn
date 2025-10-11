@@ -1,0 +1,15 @@
+﻿@page "/Projects/EditProject/{ProjectId}"
+@using Microsoft.AspNetCore.Authorization
+@using ProjectPlanner.Client.Layout.Project
+@attribute [Authorize]
+@inject ILogger<CreateProject> Logger
+
+@attribute [Authorize]
+@rendermode InteractiveWebAssembly
+<PageTitle>Edit Project</PageTitle>
+
+<ProjectEditComp IsCreate="false" ProjectId="@ProjectId"></ProjectEditComp>
+
+@code {
+    [Parameter] public string ProjectId { get; set; }
+}

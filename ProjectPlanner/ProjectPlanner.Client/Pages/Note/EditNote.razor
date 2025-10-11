@@ -1,0 +1,20 @@
+﻿@page "/Projects/Project/{ProjectId}/EditNote/{NoteId}"
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using ProjectPlanner.Client.Layout.Note
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager NavManager
+@attribute [Authorize]
+@rendermode InteractiveWebAssembly
+
+<PageTitle>Edit Note</PageTitle>
+
+<NoteEditComp ProjectId="@ProjectId" IsCreate="@false" NoteId="@NoteId"/>
+
+@code {
+    [Parameter]
+    public string ProjectId { get; set; }
+    [Parameter]
+    public string NoteId { get; set; }
+
+}

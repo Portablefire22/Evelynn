@@ -1,5 +1,7 @@
 @page "/Projects/Project/{ProjectId}/NewGantt"
-@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@attribute [Authorize]
+@rendermode InteractiveWebAssembly
+@using Microsoft.AspNetCore.Authorization
 @using ProjectPlanner.Client.Layout.Gantt
 
 <NewGanttComp ProjectId="@ProjectId"></NewGanttComp>

@@ -1,0 +1,76 @@
+﻿@using System.Net
+@using BlazorBootstrap
+@using ProjectPlanner.Client.Models
+
+@inject HttpClient Client;
+@inject NavigationManager NavMan;
+@inject ILogger<NoteEditComp> Logger;
+@rendermode InteractiveWebAssembly
+
+<div class="card mx-auto" style="width: 90%; ">
+    <div class="card-header">
+        <h3>@Title</h3>
+    </div>
+        <EditForm class="p-3" Model="Note" FormName="create-note-form" OnValidSubmit="OnSubmit">
+            <div class="mb-3">
+                <label for="noteNameInput">Note Name</label>
+                <InputText type="text" formaction="/api/Note/new-note" class="form-control"
+                           @bind-value="Note!.Name" id="noteNameInput" placeholder="Enter Note name"/>
+            </div>
+            <div class="mb-3">
+                <label for="noteDescriptionInput">Contents</label>
+                <div class="d-flex flex-row">
+                    <textarea type="text" class="form-control w-50" id="noteDescriptionInput"
+                                   @bind:event="oninput"
+                                   rows="20"
+                                   @bind="Note!.Contents"
+                              placeholder="Note contents"> </textarea>
+                    <Markdown Class="ms-3 w-50 form-control">@Note!.Contents</Markdown>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">@ButtonText</button>
+        </EditForm>
+    </div>
+
+@code {
+    [Parameter]
+    public string ProjectId { get; set; }
+    [Parameter] 
+    public string? NoteId { get; set; }
+   
+    private string Title => IsCreate ? "New Note" : "Edit Note";
+    private string ButtonText => IsCreate ? "Create" : "Edit"; 
+    
+    [Parameter]
+    public bool IsCreate { get; set; }
+
+    
+    [SupplyParameterFromForm]
+    public NoteDTO? Note { get; set; }
+    
+    private async Task OnSubmit()
+    {
+        var dest = IsCreate ? "NewNote" : $"EditNote/{NoteId}";
+        Note!.ProjectId = int.Parse(ProjectId);
+        var x = await Client.PutAsJsonAsync($"/api/Project/{ProjectId}/{dest}", Note);
+        Logger.LogInformation($"{x.StatusCode}");
+        if (x.StatusCode != HttpStatusCode.OK) return;
+
+        var note = await x.Content.ReadFromJsonAsync<NoteDTO>();
+        Logger.LogInformation($"{note.Id}");
+        NavMan.NavigateTo($"/Projects/Project/{ProjectId}/Notes/{note?.Id}");
+    }
+    
+    protected override void OnInitialized()
+    {
+        Note ??= new();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || IsCreate) return;
+        Note = await Client.GetFromJsonAsync<NoteDTO>($"/api/Project/{ProjectId}/Notes/{NoteId}");
+        StateHasChanged();
+    }
+
+}

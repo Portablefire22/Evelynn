@@ -1,0 +1,13 @@
+﻿@page "/Projects/CreateProject"
+@using Microsoft.AspNetCore.Authorization
+@using ProjectPlanner.Client.Layout.Project
+@attribute [Authorize]
+@inject ILogger<CreateProject> Logger
+
+@rendermode InteractiveWebAssembly
+<PageTitle>New Project</PageTitle>
+
+<ProjectEditComp IsCreate="true"></ProjectEditComp>
+
+@code {
+}

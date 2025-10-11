@@ -37,7 +37,13 @@
                     <small>Created by: @(GetUser(CurrentNote.ModifiedBy))</small>
                 }
             </div>
-            <Markdown>@CurrentNote.Contents</Markdown>
+            
+            <div class="order-2 mt-2 mb-2">
+                <a class="btn btn-primary" href="/Projects/Project/@ProjectId/EditNote/@CurrentNote.Id">Edit</a>
+            </div>
+            <div class="form-control">
+                <Markdown>@CurrentNote.Contents</Markdown>
+            </div>
         }
     </div>
 </div>

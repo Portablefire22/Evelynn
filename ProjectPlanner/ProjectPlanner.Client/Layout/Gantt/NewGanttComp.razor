@@ -10,13 +10,13 @@
         <div class="mb-3">
             <label for="ganttNameInput">Gantt Name</label>
             <InputText type="text" formaction="/api/Gantt/new-gantt" class="form-control" 
-                       @bind-value="Gantt!.Name" id="ganttNameInput" placeholder="Enter gantt name"/>
+                       @bind-value="Gantt.Name" id="ganttNameInput" placeholder="Enter gantt name"/>
         </div>
         <div class="mb-3">
             <label for="ganttDescriptionInput">Gantt Description</label>
             <textarea type="text" class="form-control" id="ganttDescriptionInput"
                        @bind:event="oninput"
-                      @bind="Gantt!.Description" placeholder="A short description of your gantt">
+                      @bind="Gantt.Description" placeholder="A short description of your gantt">
             </textarea>
         </div>
         <button type="submit" class="btn btn-primary">Create</button>
@@ -24,11 +24,11 @@
 </div>
 
 @code {
-    [SupplyParameterFromForm]
-    private GanttDTO Gantt { get; set; }
-
     [Parameter]
     public string ProjectId { get; set; }
+    
+    [SupplyParameterFromForm]
+    private GanttDTO Gantt { get; set; }
     
     private async Task OnSubmit()
     {

@@ -60,8 +60,16 @@ namespace ProjectPlanner.Controllers
                 return NotFound();
             }
             var projectModel = await _context.Projects.FirstOrDefaultAsync(x => x.Id == id);
-           
-            return projectModel != null? projectModel : NotFound();
+
+            if (projectModel == null) return NotFound();
+
+            var projectDto = new ProjectDTO()
+            {
+                Id = projectModel.Id,
+                Name = projectModel.Name,
+                Description = projectModel.Description,
+            };
+            return Ok(projectDto);
         }
 
         [HttpPost("create-project")]
@@ -70,6 +78,99 @@ namespace ProjectPlanner.Controllers
             return Redirect("/Projects/Project/0");
         }
 
+        [HttpPut("{id}/NewNote")]
+        [Consumes("application/json")]
+        public async Task<IActionResult> PutNote(int id, NoteDTO note)
+        {
+            var user = GetCurrentUserId();
+            if (user == null || !(await DoesUserHaveAccessToProject(user, id)).Value)
+            {
+                return BadRequest();
+            }
+
+            var noteMod = new NotesModel()
+            {
+                Name = note.Name,
+                Created = DateTime.Now,
+                ModifiedBy = user,
+                ProjectId = id,
+                FilePath = ""
+            };
+
+            _context.Notes.Add(noteMod);
+
+            await _context.SaveChangesAsync();
+
+            _context.Update(noteMod);
+            noteMod.FilePath = $"Storage/Notes/{id}/";
+
+            Directory.CreateDirectory(noteMod.FilePath);
+            noteMod.FilePath = $"{noteMod.FilePath}{noteMod.Id}";
+            await System.IO.File.WriteAllTextAsync(noteMod.FilePath, note.Contents);
+            
+            await _context.SaveChangesAsync();
+            note.Id = noteMod.Id;
+            return Ok(note);
+        }
+        
+        // GET: api/Project/5
+        [HttpPut("{id}/EditNote/{noteId}")]
+        public async Task<ActionResult<NoteDTO>> EditProjectNote(int id, NoteDTO note)
+        {
+
+            var user = GetCurrentUserId();
+            if (user == null ||
+                !(await DoesUserHaveAccessToProject(user, id)).Value)
+            {
+                return NotFound();
+            }
+            var noteModel = await _context.Notes.FirstOrDefaultAsync(
+                x => x.ProjectId == id);
+
+            if (noteModel == null || noteModel.FilePath == null) return NotFound();
+
+            await System.IO.File.WriteAllTextAsync(noteModel.FilePath, note.Contents);
+
+            _context.Update(noteModel);
+
+            noteModel.Name = note.Name;
+            noteModel.Modified = DateTime.Now;
+            noteModel.ModifiedBy = user;
+
+            await _context.SaveChangesAsync();
+            // Set contents to nothing as it would be a waste to send it all back
+            note.Contents = "";
+            return Ok(note);
+        }
+        
+        // GET: api/Project/5
+        [HttpGet("{id}/Notes/{noteId}")]
+        public async Task<ActionResult<NoteDTO>> GetProjectNote(int id, int noteId)
+        {
+
+            var user = GetCurrentUserId();
+            if (user == null ||
+                !(await DoesUserHaveAccessToProject(user, id)).Value)
+            {
+                return NotFound();
+            }
+            var noteModel = await _context.Notes.FirstOrDefaultAsync(
+                x => x.ProjectId == id);
+
+            if (noteModel == null || noteModel.FilePath == null) return NotFound();
+
+            var contents = await System.IO.File.ReadAllTextAsync(noteModel.FilePath);
+            
+            var noteDto = new NoteDTO()
+            {
+                Id = noteModel.Id,
+                Name = noteModel.Name,
+                Contents = contents,
+            };
+            
+            return Ok(noteDto);
+        }
+        
         [HttpPut("{id}/NewGantt")]
         [Consumes("application/json")]
         public async Task<IActionResult> PutGantt(int id, GanttDTO gantt)
@@ -83,7 +184,7 @@ namespace ProjectPlanner.Controllers
             var ganttMod = new GanttModel()
             {
                 Name = gantt.Name,
-                Description = gantt.Name,
+                Description = gantt.Description,
                 Created = DateTime.Now,
                 ModifiedBy = user,
                 ProjectId = id,
@@ -114,6 +215,62 @@ namespace ProjectPlanner.Controllers
             var projectModel = await _context.Gantts.Where(x => x.ProjectId == id).ToArrayAsync();
            
             return projectModel;
+        }
+
+
+        [HttpPut("NewProject")]
+        public async Task<IActionResult> CreateProject(ProjectDTO projectDto)
+        {
+            var user = GetCurrentUserId();
+            if (user == null) return NotFound();
+
+            var project = new ProjectModel()
+            {
+                Name = projectDto.Name,
+                Description = projectDto.Description,
+                Created = DateTime.Now,
+                ModifiedBy = user,
+            };
+
+            await _context.Projects.AddAsync(project);
+            await _context.SaveChangesAsync();
+            
+            var userProj = new UserProjectsModel()
+            {
+                UserId = user,
+                ProjectId = project.Id,
+                Capabilities = 3
+            };
+
+            await _context.UserProjects.AddAsync(userProj);
+            await _context.SaveChangesAsync();
+
+            projectDto.Id = project.Id;
+            return Ok(projectDto);
+        }
+        
+        [HttpPut("EditProject/{id}")]
+        [Consumes("application/json")]
+        public async Task<IActionResult> EditProject(int id, ProjectDTO project)
+        {
+            var user = GetCurrentUserId();
+            if (user == null || !(await DoesUserHaveAccessToProject(user, id)).Value)
+            {
+                return BadRequest();
+            }
+            
+            var projectModel = await _context.Projects.FindAsync(id);
+            if (projectModel == null) return NotFound();
+
+            _context.Update(projectModel);
+
+            projectModel.Name = project.Name;
+            projectModel.Description = project.Description;
+            projectModel.Modified = DateTime.Now;
+            projectModel.ModifiedBy = user;
+            
+            await _context.SaveChangesAsync();
+            return Ok(project);
         }
         
         // PUT: api/Project/5
