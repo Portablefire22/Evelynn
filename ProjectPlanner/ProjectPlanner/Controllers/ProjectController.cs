@@ -68,6 +68,9 @@ namespace ProjectPlanner.Controllers
                 Id = projectModel.Id,
                 Name = projectModel.Name,
                 Description = projectModel.Description,
+                Created = projectModel.Created,
+                Modified = projectModel.Modified,
+                ModifiedBy = projectModel.ModifiedBy,
             };
             return Ok(projectDto);
         }
@@ -141,6 +144,31 @@ namespace ProjectPlanner.Controllers
             // Set contents to nothing as it would be a waste to send it all back
             note.Contents = "";
             return Ok(note);
+        }
+        
+        // GET: api/Project/5
+        [HttpGet("{id}/Notes")]
+        public async Task<ActionResult<NoteDTO[]>> GetProjectNotes(int id)
+        {
+
+            var user = GetCurrentUserId();
+            if (user == null ||
+                !(await DoesUserHaveAccessToProject(user, id)).Value)
+            {
+                return NotFound();
+            }
+            var noteModel = await _context.Notes.Where(
+                x => x.ProjectId == id).ToArrayAsync();
+
+            var notes = noteModel.Select(x => new NoteDTO()
+            {
+                Id = x.Id,
+                ProjectId = x.ProjectId,
+                Name = x.Name,
+                Contents = System.IO.File.ReadAllText(x.FilePath!)
+            }).ToArray();
+            
+            return Ok(notes);
         }
         
         // GET: api/Project/5
@@ -247,6 +275,50 @@ namespace ProjectPlanner.Controllers
 
             projectDto.Id = project.Id;
             return Ok(projectDto);
+        }
+        
+        [HttpPut("DeleteProject/{id}")]
+        [Consumes("application/json")]
+        public async Task<IActionResult> EditProject(int id)
+        {
+            var user = GetCurrentUserId();
+            if (user == null || !(await DoesUserHaveAccessToProject(user, id)).Value)
+            {
+                return BadRequest();
+            }
+            
+            var projectModel = await _context.Projects.FindAsync(id);
+            if (projectModel == null) return NotFound();
+
+            var notes = _context.Notes.Where(x => x.ProjectId == projectModel.Id);
+            var gantts = _context.Gantts.Where(x => x.ProjectId == projectModel.Id);
+            var userProjects = _context.UserProjects.Where(x => x.ProjectId == projectModel.Id);
+
+            foreach (var note in notes)
+            {
+                var attachments = _context.NoteAttachments.Where(x => x.NoteId == note.Id);
+
+                foreach (var attachment in attachments)
+                {
+                    _context.NoteAttachments.Remove(attachment);
+                    System.IO.File.Delete(attachment.FilePath);
+                } 
+                
+                _context.Notes.Remove(note);
+                if (note.FilePath != null) System.IO.File.Delete(note.FilePath);
+            }
+            foreach (var gantt in gantts)
+            {
+                _context.Gantts.Remove(gantt);
+                System.IO.File.Delete(gantt.XmlPath);
+            }
+            foreach (var userProj in userProjects)
+            {
+                _context.UserProjects.Remove(userProj);
+            }
+            
+            await _context.SaveChangesAsync();
+            return Ok();
         }
         
         [HttpPut("EditProject/{id}")]

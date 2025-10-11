@@ -21,7 +21,7 @@ public class ProjectModel
     [Column(TypeName = "TEXT")]
     public DateTime? Modified { get; set; }
 
-    public string? ModifiedBy { get; set; }
+    public string ModifiedBy { get; set; }
 
     public double ModifiedOffset => double.Round(DateTime.Now.Subtract(Modified.GetValueOrDefault()).TotalHours, 1);
     public double CreatedOffset => double.Round(DateTime.Now.Subtract(Created).TotalHours, 1);

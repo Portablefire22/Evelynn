@@ -1,14 +1,15 @@
 ﻿@page "/Projects/Project/{projectId}"
-@inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager NavManager
 @using System.Globalization
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.EntityFrameworkCore
-@using ProjectPlanner.Data
-@using ProjectPlanner.Data.Projects
-@attribute [StreamRendering]
+@using ProjectPlanner.Client.Models
+@inject HttpClient Client
+@inject ILogger<Project> Logger
+
+@rendermode InteractiveWebAssembly
+
 @attribute [Authorize]
 
 <PageTitle>@CurrentProject?.Name</PageTitle>
@@ -30,18 +31,18 @@
                         <small>Created: @CurrentProject.Created.ToString(CultureInfo.CurrentCulture)</small>
                         @if (CurrentProject.Modified != null && CurrentProject.Modified?.Subtract(CurrentProject.Created).Milliseconds > 5)
                         {
-                            <small>Last Modified: @CurrentProject.ModifiedOffset hours ago (@CurrentProject.Modified?.ToString())</small>
-                            <small>Modified by: @(GetUser(CurrentProject.ModifiedBy))</small>
+                            <small>Last Modified: @GetOffset(CurrentProject.Modified.Value) hours ago (@CurrentProject.Modified?.ToString())</small>
+                            <small>Modified by: @modifierUser</small>
                         }
-                        else if (CurrentProject.ModifiedBy != null)
+                        else
                         { 
-                            <small>Created by: @(GetUser(CurrentProject.ModifiedBy))</small>
+                            <small>Created by: @modifierUser</small>
                         }
                     </div>
                 </div>
                 <div class="order-2 mt-2">
                     <a class="btn btn-primary" href="/Projects/EditProject/@ProjectId">Edit</a>
-                    <button class="btn btn-danger">Delete</button>
+                    <button class="btn btn-danger" @onclick="Delete">Delete</button>
                 </div>
             </div>
             <p>@CurrentProject.Description</p>
@@ -79,44 +80,43 @@
     [Parameter]
     public string ProjectId { get; set; }
     
-    private ProjectModel? CurrentProject { get; set; }
+    private ProjectDTO? CurrentProject { get; set; }
+
+    private string modifierUser = ""; 
     
-    private NotesModel[] Notes { get; set; }
-    private GanttModel[] Gantts { get; set; }
+    private NoteDTO[]? Notes { get; set; }
+    private GanttDTO[]? Gantts { get; set; }
 
-    private string? GetUser(string? uuid)
+    private double GetOffset(DateTime mod)
     {
-        if (uuid == null) return null;
-
-        var context = DbFactory.CreateDbContext();
-        var user = context.Users.Find(uuid);
-        return user?.UserName;
+        return double.Round(DateTime.Now.Subtract(mod).TotalHours, 1);
     }
 
-    private async Task<NotesModel[]> GetNotes(ApplicationDbContext context, int id)
+    private async Task<string> GetUser(string? uuid)
     {
-        return await context.Notes.Where(x => x.ProjectId == id).ToArrayAsync();
+        var resp = await Client.GetAsync($"api/User/{uuid}");
+        var username = await resp.Content.ReadAsStringAsync();
+        return username.Length > 0 ? username : "[deleted]";
     }
-    private async Task<GanttModel[]> GetGantts(ApplicationDbContext context, int id)
+
+    public async Task Delete()
     {
-        return await context.Gantts.Where(x => x.ProjectId == id).ToArrayAsync();
+        var resp = await Client.PutAsync($"api/Project/DeleteProject/{ProjectId}", null);
+        if (!resp.IsSuccessStatusCode) return;
+        NavManager.NavigateTo("/Projects/All");
     }
-    
-    protected override async Task OnInitializedAsync()
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        using var context = await DbFactory.CreateDbContextAsync();
-        
-        var authState = await AuthState.GetAuthenticationStateAsync();
-        var uuid = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (uuid == null) return;
-        if (!int.TryParse(ProjectId, out var id)) return;
+        if (!firstRender) return;
+        CurrentProject = await Client.GetFromJsonAsync<ProjectDTO>($"api/Project/{ProjectId}");
+        if (CurrentProject == null) return;
 
-        var model = await context.UserProjects.FirstOrDefaultAsync(x => x.ProjectId == id && x.UserId == uuid);
-        if (model == null) return;
-
-        Notes = await GetNotes(context, id);
-        Gantts = await GetGantts(context, id);
-        
-        CurrentProject = context.Projects.FirstOrDefault(x => x.Id == int.Parse(ProjectId));
+        modifierUser = await GetUser(CurrentProject.ModifiedBy);
+        Notes = await Client.GetFromJsonAsync<NoteDTO[]>($"api/Project/{ProjectId}/Notes");
+        Gantts = await Client.GetFromJsonAsync<GanttDTO[]>($"api/Project/{ProjectId}/Gantt");
+        if (Notes == null) Notes = new NoteDTO[0];
+        if (Gantts == null) Gantts = new GanttDTO[0];
+        StateHasChanged();
     }
 }
